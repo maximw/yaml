@@ -714,7 +714,7 @@ class Parser
         }
 
         try {
-            $quotation = '' !== $value && ('"' === $value[0] || "'" === $value[0]) ? $value[0] : null;
+            $quotation = null; //'' !== $value && ('"' === $value[0] || "'" === $value[0]) ? $value[0] : null;
 
             // do not take following lines into account when the current line is a quoted single line value
             if (null !== $quotation && self::preg_match('/^'.$quotation.'.*'.$quotation.'(\s*#.*)?$/', $value)) {
