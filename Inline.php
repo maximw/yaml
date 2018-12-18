@@ -265,45 +265,26 @@ class Inline
      */
     public static function parseScalar(string $scalar, int $flags = 0, array $delimiters = null, int &$i = 0, bool $evaluate = true, array $references = array())
     {
-        if (\in_array($scalar[$i], array('"', "'"))) {
-            // quoted scalar
-            $output = self::parseQuotedScalar($scalar, $i);
+        // "normal" string
+        if (!$delimiters) {
+            $output = substr($scalar, $i);
+            $i += \strlen($output);
 
-            if (null !== $delimiters) {
-                $tmp = ltrim(substr($scalar, $i), ' ');
-                if ('' === $tmp) {
-                    throw new ParseException(sprintf('Unexpected end of line, expected one of "%s".', implode('', $delimiters)), self::$parsedLineNumber + 1, $scalar, self::$parsedFilename);
-                }
-                if (!\in_array($tmp[0], $delimiters)) {
-                    throw new ParseException(sprintf('Unexpected characters (%s).', substr($scalar, $i)), self::$parsedLineNumber + 1, $scalar, self::$parsedFilename);
-                }
+            // remove comments
+            if (Parser::preg_match('/[ \t]+#/', $output, $match, PREG_OFFSET_CAPTURE)) {
+                $output = substr($output, 0, $match[0][1]);
             }
+        } elseif (Parser::preg_match('/^(.*?)('.implode('|', $delimiters).')/', substr($scalar, $i), $match)) {
+            $output = $match[1];
+            $i += \strlen($output);
+            $output = trim($output);
         } else {
-            // "normal" string
-            if (!$delimiters) {
-                $output = substr($scalar, $i);
-                $i += \strlen($output);
+            throw new ParseException(sprintf('Malformed inline YAML string: %s.', $scalar), self::$parsedLineNumber + 1, null, self::$parsedFilename);
+        }
 
-                // remove comments
-                if (Parser::preg_match('/[ \t]+#/', $output, $match, PREG_OFFSET_CAPTURE)) {
-                    $output = substr($output, 0, $match[0][1]);
-                }
-            } elseif (Parser::preg_match('/^(.*?)('.implode('|', $delimiters).')/', substr($scalar, $i), $match)) {
-                $output = $match[1];
-                $i += \strlen($output);
-                $output = trim($output);
-            } else {
-                throw new ParseException(sprintf('Malformed inline YAML string: %s.', $scalar), self::$parsedLineNumber + 1, null, self::$parsedFilename);
-            }
-
-            // a non-quoted string cannot start with @ or ` (reserved) nor with a scalar indicator (| or >)
-            if ($output && ('@' === $output[0] || '`' === $output[0] || '|' === $output[0] || '>' === $output[0] || '%' === $output[0])) {
-                throw new ParseException(sprintf('The reserved indicator "%s" cannot start a plain scalar; you need to quote the scalar.', $output[0]), self::$parsedLineNumber + 1, $output, self::$parsedFilename);
-            }
-
-            if ($evaluate) {
-                $output = self::evaluateScalar($output, $flags, $references);
-            }
+        // a non-quoted string cannot start with @ or ` (reserved) nor with a scalar indicator (| or >)
+        if ($output && ('`' === $output[0] || '|' === $output[0] || '>' === $output[0] || '%' === $output[0])) {
+            throw new ParseException(sprintf('The reserved indicator "%s" cannot start a plain scalar; you need to quote the scalar.', $output[0]), self::$parsedLineNumber + 1, $output, self::$parsedFilename);
         }
 
         return $output;
